@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/debojitroy/benchmark-dynamo-vs-rds/api/controllers"
 	"github.com/debojitroy/benchmark-dynamo-vs-rds/api/middlewares"
 	"github.com/debojitroy/benchmark-dynamo-vs-rds/api/services"
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,46 @@ func getDBConnectionDetails() (services.DBConnection, error) {
 	}, nil
 }
 
+func setupRouter(dbConnection *sql.DB) *gin.Engine {
+	r := gin.Default()
+	r.Use(middlewares.Timer())
+
+	r.POST("/v1/rdbms/orders", func(c *gin.Context) {
+
+		var orderRequest controllers.OrderCreateRequest
+
+		if c.Bind(&orderRequest) == nil {
+			orderResponse, err := controllers.CreateOrder(&orderRequest, dbConnection)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			} else {
+				c.JSON(http.StatusOK, orderResponse)
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "order body is missing"})
+		}
+	})
+
+	r.GET("/v1/rdbms/orders", func(c *gin.Context) {
+		orderId := c.Query("order_id")
+
+		if orderId != "" {
+			orderDetailsResponse, err := controllers.SelectOrder(orderId, dbConnection)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			} else {
+				c.JSON(http.StatusOK, orderDetailsResponse)
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "order_id is missing"})
+		}
+	})
+
+	return r
+}
+
 func main() {
 	gin.ForceConsoleColor()
 
@@ -47,35 +88,7 @@ func main() {
 		}
 	}(dbConnection)
 
-	r := gin.Default()
-
-	r.Use(middlewares.Timer())
-
-	r.GET("/ping", func(c *gin.Context) {
-		// Execute the query
-		results, err := dbConnection.Query("select now() as time")
-		if err != nil {
-			log.Fatalf("Failed to query Database: %v", err)
-		}
-
-		var currentTime time.Time
-
-		for results.Next() {
-			// for each row, scan the result into our tag composite object
-			err = results.Scan(&currentTime)
-			if err != nil {
-				log.Fatalf("Failed to process Results: %v", err)
-			}
-
-			// and then print out the tag's Name attribute
-			log.Printf("Time now: %v", currentTime)
-		}
-
-		c.JSON(200, gin.H{
-			"message":     "pong",
-			"currentTime": currentTime,
-		})
-	})
+	r := setupRouter(dbConnection)
 
 	srv := &http.Server{
 		Addr:    ":8080",
