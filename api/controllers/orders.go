@@ -3,8 +3,11 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	dynamoModel "github.com/debojitroy/benchmark-dynamo-vs-rds/api/models/dynamodb"
 	"github.com/debojitroy/benchmark-dynamo-vs-rds/api/models/rdbms"
 	"github.com/debojitroy/benchmark-dynamo-vs-rds/api/utils"
+	"log"
 	"time"
 )
 
@@ -55,9 +58,41 @@ func SelectOrder(orderId string, db *sql.DB) (OrderSelectResponse, error) {
 	orderRecord, err := models.RdbmsSelect(orderId, db)
 
 	if err != nil {
-		fmt.Printf("Failed to select order %v", err)
+		log.Printf("Failed to select order %v", err)
 		return OrderSelectResponse{OrderId: ""}, err
 	}
 
 	return OrderSelectResponse{OrderId: orderRecord.OrderId, MerchantId: orderRecord.MerchantId, Amount: orderRecord.Amount, Currency: orderRecord.Currency, Status: orderRecord.Status, CreatedAt: orderRecord.CreatedAt, UpdatedAt: orderRecord.UpdatedAt}, nil
+}
+
+func CreateDynamoDbOrder(config *aws.Config, order *OrderCreateRequest) (OrderCreateResponse, error) {
+	request := dynamoModel.DynamoDbNewOrderInput(order.MerchantId, order.Amount, order.Currency, "NEW")
+
+	orderId, err := dynamoModel.DynamoDbCreateOrder(config, request)
+
+	if err != nil {
+		log.Printf("Failed to create order %v", err)
+		return OrderCreateResponse{OrderId: ""}, err
+	}
+
+	return OrderCreateResponse{OrderId: orderId}, nil
+}
+
+func SelectDynamoDbOrder(config *aws.Config, orderId string) (OrderSelectResponse, error) {
+	orderRecord, err := dynamoModel.DynamoDbSelectOrder(config, orderId)
+
+	if err != nil {
+		log.Printf("Failed to select order %v", err)
+		return OrderSelectResponse{}, err
+	}
+
+	return OrderSelectResponse{
+		OrderId:    orderRecord.OrderId,
+		MerchantId: orderRecord.MerchantId,
+		Amount:     orderRecord.Amount,
+		Currency:   orderRecord.Currency,
+		Status:     orderRecord.Status,
+		CreatedAt:  time.Unix(orderRecord.CreatedAt, 0),
+		UpdatedAt:  time.Unix(orderRecord.UpdatedAt, 0),
+	}, nil
 }

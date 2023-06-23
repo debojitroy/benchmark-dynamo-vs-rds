@@ -25,3 +25,20 @@ func PutItemInDynamoDB(config *aws.Config, Item *map[string]types.AttributeValue
 		Item:      *Item,
 	})
 }
+
+func GetItemFromDynamoDB(config *aws.Config, Item *map[string]types.AttributeValue) (*dynamodb.GetItemOutput, error) {
+	tableName, ok := os.LookupEnv("TABLE_NAME")
+
+	if !ok {
+		panic("Dynamodb table name is not set")
+	}
+
+	fmt.Printf("Table Name: %s", tableName)
+	svc := dynamodb.NewFromConfig(*config)
+
+	// GetItem from DynamoDB
+	return svc.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key:       *Item,
+	})
+}

@@ -65,6 +65,43 @@ func setupRouter(dbConnection *sql.DB) *gin.Engine {
 		}
 	})
 
+	r.POST("/v1/ddb/orders", func(c *gin.Context) {
+
+		config := services.ConfigureAws()
+
+		var orderRequest controllers.OrderCreateRequest
+
+		if c.Bind(&orderRequest) == nil {
+			orderResponse, err := controllers.CreateDynamoDbOrder(&config, &orderRequest)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			} else {
+				c.JSON(http.StatusOK, orderResponse)
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "order body is missing"})
+		}
+	})
+
+	r.GET("/v1/ddb/orders", func(c *gin.Context) {
+		config := services.ConfigureAws()
+
+		orderId := c.Query("order_id")
+
+		if orderId != "" {
+			orderDetailsResponse, err := controllers.SelectDynamoDbOrder(&config, orderId)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			} else {
+				c.JSON(http.StatusOK, orderDetailsResponse)
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "order_id is missing"})
+		}
+	})
+
 	return r
 }
 
@@ -96,6 +133,7 @@ func main() {
 	}
 
 	go func() {
+		log.Println("Starting Server...")
 		// service connections
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
