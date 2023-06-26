@@ -11,20 +11,88 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 )
 
 func getDBConnectionDetails() (services.DBConnection, error) {
+
+	host, hostOk := os.LookupEnv("DB_HOST")
+
+	if !hostOk {
+		log.Fatal("Host Details are not available")
+	}
+
+	dbPort, dbPortOk := os.LookupEnv("DB_PORT")
+
+	if !dbPortOk {
+		log.Fatal("DB Port is not available")
+	}
+
+	port, portErr := strconv.ParseInt(dbPort, 10, 0)
+
+	if portErr != nil {
+		log.Fatal("DB Port is not valid Integer")
+	}
+
+	username, usernameOk := os.LookupEnv("DB_USERNAME")
+
+	if !usernameOk {
+		log.Fatal("Username is not available")
+	}
+
+	password, passwordOk := os.LookupEnv("DB_PASSWORD")
+
+	if !passwordOk {
+		log.Fatal("Username is not available")
+	}
+
+	driver, driverOk := os.LookupEnv("DB_DRIVER")
+
+	if !driverOk {
+		log.Fatal("Driver is not available")
+	}
+
+	schema, schemaOk := os.LookupEnv("DB_SCHEMA")
+
+	if !schemaOk {
+		log.Fatal("DB Schema is not available")
+	}
+
+	dbMaxConnLifeTime, dbMaxConnLifeTimeOk := os.LookupEnv("DB_CONN_MAX_LIFE_MIN")
+
+	if !dbMaxConnLifeTimeOk {
+		log.Fatal("DB Connection Max Lifetime is not available")
+	}
+
+	dbMaxConnLifetimeParsed, lifetimeErr := strconv.ParseInt(dbMaxConnLifeTime, 10, 0)
+
+	if lifetimeErr != nil {
+		log.Fatal("DB Connection Lifetime is not valid Integer")
+	}
+
+	dbPoolSize, dbPoolSizeOk := os.LookupEnv("DB_CONN_POOL_SIZE")
+
+	if !dbPoolSizeOk {
+		log.Fatal("DB Connection Pool Size is not available")
+	}
+
+	dbPoolSizeParsed, poolSizeErr := strconv.ParseInt(dbPoolSize, 10, 0)
+
+	if poolSizeErr != nil {
+		log.Fatal("DB Connection Pool Size is not valid Integer")
+	}
+
 	return services.DBConnection{
-		Hostname:                 "localhost",
-		Port:                     3306,
-		Username:                 "admin",
-		Password:                 "password",
-		Driver:                   "mysql",
-		Database:                 "pgrouter",
-		ConnMaxLifetimeInMinutes: 3,
-		MaxOpenConns:             10,
-		MaxIdleConns:             10,
+		Hostname:                 host,
+		Port:                     int(port),
+		Username:                 username,
+		Password:                 password,
+		Driver:                   driver,
+		Database:                 schema,
+		ConnMaxLifetimeInMinutes: dbMaxConnLifetimeParsed,
+		MaxOpenConns:             int(dbPoolSizeParsed),
+		MaxIdleConns:             int(dbPoolSizeParsed),
 	}, nil
 }
 
